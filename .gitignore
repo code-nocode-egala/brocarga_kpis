@@ -1,0 +1,28 @@
+# Repository-wide ignores. Frontend-specific rules live in frontend/.gitignore.
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Python / Django (backend/)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+backend/staticfiles/
+backend/logs/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?
