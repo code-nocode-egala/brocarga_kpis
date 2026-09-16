@@ -1,0 +1,27 @@
+.git
+.gitignore
+
+# Secrets: the container is configured through env_file at run time, never by
+# baking a .env into the image (settings.py would happily read one).
+.env
+.env.*
+!.env.example
+
+# Rebuilt inside the image
+**/node_modules
+frontend/dist
+backend/staticfiles
+
+**/__pycache__
+**/*.py[cod]
+.venv
+venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+
+.vscode
+.idea
+.DS_Store

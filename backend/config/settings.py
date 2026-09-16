@@ -132,6 +132,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves everything under STATIC_URL straight from STATIC_ROOT. Django only
+    # serves static files itself while DEBUG is on, and the deployed container
+    # runs with it off, so without this the SPA shell loads and then asks for a
+    # bundle that answers 404.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.gzip.GZipMiddleware",
 ]
@@ -173,6 +178,19 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # here. If the bundle has not been built yet the directory is simply absent and
 # the API still works — `/` then explains what to run.
 STATICFILES_DIRS = [FRONTEND_DIST / "assets"] if (FRONTEND_DIST / "assets").is_dir() else []
+
+# Compressed, but deliberately *not* manifest storage. The manifest backend
+# renames every file to `<name>.<its own hash>.<ext>` and rewrites references
+# only in files Django itself renders. The bundle's entry point is webpack's
+# `index.html`, streamed verbatim from disk by `spa_index`, so those rewrites
+# would never reach it and every asset URL in it would 404.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+
+# Webpack content-hashes each filename, so a given URL's bytes never change.
+WHITENOISE_MAX_AGE = env_int("WHITENOISE_MAX_AGE", 31536000)
 
 
 # --------------------------------------------------------------------------

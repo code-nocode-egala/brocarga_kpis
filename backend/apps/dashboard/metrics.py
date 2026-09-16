@@ -39,6 +39,7 @@ from .schema import (
     INVOICE_DATE,
     INVOICE_DEAL,
     INVOICE_ID,
+    INVOICE_NUMBER,
     ROLE_SHARE,
 )
 
@@ -435,7 +436,7 @@ def outstanding_invoices(invoices: Sequence[Row], ds: Dataset) -> list[dict[str,
         term = ds.payment_term.get(customer_id, DEFAULT_PAYMENT_TERM_DAYS)
         late = ds.days_overdue(inv)
         rows.append({
-            "invoice_number": inv.get(INVOICE_ID, ""),
+            "invoice_number": _invoice_number(inv),
             "customer": ds.customer_name.get(customer_id, "Unknown"),
             "broker": _primary_broker(deal_id, ds),
             "invoice_date": issued.isoformat(),
@@ -447,6 +448,22 @@ def outstanding_invoices(invoices: Sequence[Row], ds: Dataset) -> list[dict[str,
         })
     rows.sort(key=lambda r: r["days_overdue"], reverse=True)
     return rows
+
+
+def _invoice_number(inv: Row) -> str:
+    """The short number people quote, not Bubble's 32-character `_id`.
+
+    Coerced to `str` because Bubble sends `ID` as a JSON number while the React
+    table types this field as a string and uses it as the row key -- leaving it
+    an int would put two types on one field for no gain.
+
+    An invoice with no `ID` falls back to `_id` rather than to "": every such
+    row would otherwise share a key, and React would render only one of them.
+    """
+    number = inv.get(INVOICE_NUMBER)
+    if number is None or number == "":
+        return str(inv.get(INVOICE_ID, ""))
+    return str(number)
 
 
 def _primary_broker(deal_id: str | None, ds: Dataset) -> str:

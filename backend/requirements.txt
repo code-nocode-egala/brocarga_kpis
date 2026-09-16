@@ -1,2 +1,5 @@
 Django>=5.0,<7.0
 requests>=2.31
+# Serves the built bundle out of STATIC_ROOT. Django's own static serving only
+# runs with DEBUG on, so without this the deployed SPA has no JavaScript.
+whitenoise>=6.6

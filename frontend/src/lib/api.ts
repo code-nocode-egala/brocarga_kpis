@@ -64,9 +64,14 @@ async function getJson<T>(path: string, search?: URLSearchParams): Promise<T> {
  * Filters as query parameters.
  *
  * These names are the contract `apps.api.params.parse_filters` reads:
- * `from`/`to` are inclusive ISO dates, `broker`/`customer`/`status` use the
- * literal string "all" as the no-filter sentinel, and `period` carries the
- * preset the user picked so the backend can log or re-resolve it.
+ * `from`/`to` are inclusive ISO dates, `broker`/`customer` use the literal
+ * string "all" as the no-filter sentinel, and `period` carries the preset the
+ * user picked so the backend can log or re-resolve it.
+ *
+ * `status` (the invoice state) is deliberately not sent. The filter bar no
+ * longer offers it, and `parse_filters` reads an absent `status` as "all", so
+ * omitting it is what leaves invoices unfiltered -- sending "all" explicitly
+ * would mean the same thing but imply a control that no longer exists.
  */
 export function filterParams(f: Filters): URLSearchParams {
   return new URLSearchParams({
@@ -74,7 +79,6 @@ export function filterParams(f: Filters): URLSearchParams {
     to: f.to,
     broker: f.broker,
     customer: f.customer,
-    status: f.status,
     dealStatus: f.dealStatus,
     period: f.period,
   });
@@ -82,10 +86,13 @@ export function filterParams(f: Filters): URLSearchParams {
 
 /**
  * Stable cache key for a filter set. Mirrors `Filters.cache_key_part` on the
- * backend so both sides invalidate on the same boundaries.
+ * backend so both sides invalidate on the same boundaries -- minus the invoice
+ * status, which this app no longer varies: the backend still has that field
+ * and still includes it in its own key, but every request from here leaves it
+ * at "all", so it can never be the thing that distinguishes two filter sets.
  */
 function filterKey(f: Filters): string {
-  return [f.from, f.to, f.broker, f.customer, f.status, f.dealStatus].join("|");
+  return [f.from, f.to, f.broker, f.customer, f.dealStatus].join("|");
 }
 
 /** URL of the full CSV extract — a plain link/navigation, not a fetch. */

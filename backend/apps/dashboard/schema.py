@@ -49,6 +49,10 @@ USER_LEVEL = "User level"
 USER_LEVEL_EXTERNAL = "External"
 
 INVOICE_ID = "_id"
+#: The short sequential number people actually quote ("17"), as opposed to
+#: `_id`, which is Bubble's 32-character internal key. Comes back as a JSON
+#: number, not a string.
+INVOICE_NUMBER = "ID"
 INVOICE_DEAL = "Deal_id"
 INVOICE_DATE = "Created Date"
 INVOICE_AMOUNT = "Amount_excl"

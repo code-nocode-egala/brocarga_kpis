@@ -12,8 +12,6 @@ export interface Filters {
   to: string;   // ISO date (inclusive)
   broker: string;
   customer: string;
-  /** Invoice state: Open / Overdue / Paid / ..., or "all". */
-  status: string;
   /** Bubble's `Status` on the deal, or "all". */
   dealStatus: string;
 }
@@ -72,7 +70,6 @@ export function defaultFilters(today: string, dealStatus = DEFAULT_DEAL_STATUS):
     to: r.to,
     broker: "all",
     customer: "all",
-    status: "all",
     dealStatus,
   };
 }
@@ -171,12 +168,6 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         options={[
           { v: "all", l: "All deal statuses" },
           ...dealStatusOptions.map((s) => ({ v: s, l: s })),
-        ]}
-      />
-      <FilterSelect label="Invoice" value={filters.status} onChange={(v) => set("status", v)}
-        options={[
-          { v: "all", l: "All statuses" },
-          ...meta.statuses.map((s) => ({ v: s, l: s })),
         ]}
       />
 

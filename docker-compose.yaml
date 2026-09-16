@@ -1,0 +1,36 @@
+services:
+
+  # Django serves both /api/* and the built React bundle, so this one container
+  # is the whole dashboard. It publishes no host port: the only way in is the
+  # nginx proxy in ../Brocarga-scripts, which is what the Cloudflare tunnel
+  # points at.
+  kpis-web:
+    build: .
+    container_name: brocarga-kpis-web
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    expose:
+      - "8000"
+    networks:
+      - edge
+    # The X-Forwarded-Proto header is not decoration: this request reaches
+    # Django without going through nginx, and DJANGO_SECURE_SSL_REDIRECT is on,
+    # so a plain http probe gets a 302 to https on a port that speaks no TLS
+    # and the check hangs until it times out. The header is what
+    # SECURE_PROXY_SSL_HEADER looks for, so Django treats the probe as already
+    # secure and answers it.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys, urllib.request as u; r = u.urlopen(u.Request('http://127.0.0.1:8000/api/health/', headers={'X-Forwarded-Proto': 'https'}), timeout=5); sys.exit(0 if r.status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+networks:
+  # Shared with the Brocarga-scripts compose project so its nginx can reach
+  # this container by name. Declared external because neither project owns it:
+  # create it once with `docker network create brocarga-edge`.
+  edge:
+    external: true
+    name: brocarga-edge
