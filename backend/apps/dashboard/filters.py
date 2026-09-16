@@ -40,12 +40,15 @@ class Filters:
 
     date_from: date
     date_to: date
-    broker: str = ALL
-    customer: str = ALL
+    #: Selected broker names; empty means every broker.
+    brokers: tuple[str, ...] = ()
+    #: Selected customer names; empty means every customer.
+    customers: tuple[str, ...] = ()
     status: str = ALL
-    #: Bubble's own `Status` on the deal ("Release money", "Cancelled", ...),
-    #: or ALL. Distinct from `status` above, which is about the invoice.
-    deal_status: str = DEFAULT_DEAL_STATUS
+    #: Bubble's own `Status` on the deal ("Release money", "Cancelled", ...);
+    #: empty means every status. Distinct from `status` above, which is about
+    #: the invoice.
+    deal_statuses: tuple[str, ...] = (DEFAULT_DEAL_STATUS,)
     period: str = "custom"
 
     def cache_key_part(self) -> str:
@@ -57,14 +60,16 @@ class Filters:
         """
         return "|".join([
             self.date_from.isoformat(), self.date_to.isoformat(),
-            self.broker, self.customer, self.status, self.deal_status,
+            ",".join(self.brokers) or ALL, ",".join(self.customers) or ALL,
+            self.status, ",".join(self.deal_statuses) or ALL,
         ])
 
 
 def apply_filters(ds: Dataset, f: Filters) -> tuple[Row, ...]:
     """Select the deals a filter set describes."""
-    broker_ids = _broker_ids(ds, f.broker)
-    customer_ids = _customer_ids(ds, f.customer)
+    broker_ids = _broker_ids(ds, f.brokers)
+    customer_ids = _customer_ids(ds, f.customers)
+    deal_statuses = set(f.deal_statuses)
 
     def keep(deal: Row) -> bool:
         when = parse_date(deal.get(S.DEAL_DATE))
@@ -76,29 +81,32 @@ def apply_filters(ds: Dataset, f: Filters) -> tuple[Row, ...]:
             return False
         if f.status != ALL and not _matches_status(deal, ds, f.status):
             return False
-        if f.deal_status != ALL and deal.get(S.DEAL_STATUS) != f.deal_status:
+        if deal_statuses and deal.get(S.DEAL_STATUS) not in deal_statuses:
             return False
         return True
 
     return tuple(d for d in ds.deals if keep(d))
 
 
-def _broker_ids(ds: Dataset, broker: str) -> set[str] | None:
-    """User ids for a broker name, or None for "no broker filter".
+def _broker_ids(ds: Dataset, brokers: tuple[str, ...]) -> set[str] | None:
+    """User ids for the selected broker names, or None for "no broker filter".
 
-    A name rather than an id crosses the wire because that is what the filter
-    bar shows; two staff members sharing a display name both match, which is
-    the honest reading of picking that name.
+    A deal is kept when any of its brokers is selected. Names rather than ids
+    cross the wire because that is what the filter bar shows; two staff members
+    sharing a display name both match, which is the honest reading of picking
+    that name.
     """
-    if broker == ALL:
+    if not brokers:
         return None
-    return {uid for uid, name in ds.user_name.items() if name == broker}
+    wanted = set(brokers)
+    return {uid for uid, name in ds.user_name.items() if name in wanted}
 
 
-def _customer_ids(ds: Dataset, customer: str) -> set[str] | None:
-    if customer == ALL:
+def _customer_ids(ds: Dataset, customers: tuple[str, ...]) -> set[str] | None:
+    if not customers:
         return None
-    return {cid for cid, name in ds.customer_name.items() if name == customer}
+    wanted = set(customers)
+    return {cid for cid, name in ds.customer_name.items() if name in wanted}
 
 
 def _matches_status(deal: Row, ds: Dataset, status: str) -> bool:

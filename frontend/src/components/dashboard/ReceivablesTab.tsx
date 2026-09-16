@@ -5,6 +5,7 @@ import type { Filters } from "@/components/dashboard/FilterBar";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { EmptyRows } from "@/components/dashboard/EmptyState";
+import { NameTick, shorten } from "@/components/dashboard/NameTick";
 import { transactionsExportUrl, useReceivables } from "@/lib/api";
 import { fmtCompact, fmtCurrency, fmtDate, fmtNumber, fmtPct } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -110,7 +111,7 @@ export function ReceivablesTab({ filters }: { filters: Filters }) {
             <BarChart data={openByCustomer} layout="vertical" margin={{ left: 8, right: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
               <XAxis type="number" tickFormatter={(v) => fmtCompact(v as number)} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="key" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} width={130} />
+              <YAxis type="category" dataKey="key" interval={0} tick={<NameTick format={shorten} dy="0.355em" />} axisLine={false} tickLine={false} width={130} />
               <Tooltip content={<TT />} />
               <Bar dataKey="open" name="Open" fill="var(--color-chart-1)" radius={[0, 6, 6, 0]} />
             </BarChart>
@@ -122,7 +123,7 @@ export function ReceivablesTab({ filters }: { filters: Filters }) {
             <BarChart data={overdueByCustomer} layout="vertical" margin={{ left: 8, right: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
               <XAxis type="number" tickFormatter={(v) => fmtCompact(v as number)} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="key" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} width={130} />
+              <YAxis type="category" dataKey="key" interval={0} tick={<NameTick format={shorten} dy="0.355em" />} axisLine={false} tickLine={false} width={130} />
               <Tooltip content={<TT />} />
               <Bar dataKey="overdue" name="Overdue" fill="var(--color-destructive)" radius={[0, 6, 6, 0]} />
             </BarChart>

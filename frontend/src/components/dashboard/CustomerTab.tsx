@@ -1,18 +1,45 @@
+import { useMemo, useState } from "react";
 import { CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import type { LucideIcon } from "lucide-react";
-import { Users, Percent, Clock, AlertTriangle, Star, Download, Zap, Phone, Mail, ShieldAlert, ArrowUpCircle, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Users, Percent, Clock, AlertTriangle, Star, Download, Zap, Phone, Mail, ShieldAlert, ArrowUpCircle, XCircle } from "lucide-react";
 import type { Filters } from "@/components/dashboard/FilterBar";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { EmptyRows } from "@/components/dashboard/EmptyState";
 import { useCustomers } from "@/lib/api";
-import type { ActionTone } from "@/lib/api-types";
+import type { ActionTone, CustomerInsight } from "@/lib/api-types";
 import { fmtCompact, fmtCurrency, fmtNumber, fmtPct } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { toCsv } from "@/lib/export";
 
 /** How many rows of the prioritised worklist fit on screen before it stops being a worklist. */
 const ACTION_LIMIT = 15;
+
+type SortKey = "customer" | "revenue" | "margin" | "marginPct" | "openAmount" | "overdueAmount" | "avgDaysOverdue" | "finqleShare" | "riskScore";
+type SortState = { key: SortKey; dir: "asc" | "desc" } | null;
+
+/**
+ * Next state for a header click: text columns start ascending, numbers
+ * descending; the second click flips it and the third returns to the
+ * backend's own ranking order.
+ */
+function nextSort(current: SortState, key: SortKey): SortState {
+  const first = key === "customer" ? "asc" : "desc";
+  if (current?.key !== key) return { key, dir: first };
+  if (current.dir === first) return { key, dir: first === "asc" ? "desc" : "asc" };
+  return null;
+}
+
+function sortRows(rows: CustomerInsight[], sort: SortState): CustomerInsight[] {
+  if (!sort) return rows;
+  const { key, dir } = sort;
+  const sign = dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) =>
+    key === "customer"
+      ? sign * a.customer.localeCompare(b.customer)
+      : sign * ((a[key] as number) - (b[key] as number)),
+  );
+}
 
 /**
  * Icon per escalation label. The backend owns the ladder — which label a
@@ -45,6 +72,10 @@ export function CustomerTab({ filters }: { filters: Filters }) {
   const marginBenchmark = benchmarks.marginPct;
   const daysBenchmark = benchmarks.daysOverdue;
   const topActions = actions.slice(0, ACTION_LIMIT);
+
+  const [sort, setSort] = useState<SortState>(null);
+  const sortedRanked = useMemo(() => sortRows(ranked, sort), [ranked, sort]);
+  const sortProps = (key: SortKey) => ({ sortKey: key, sort, onSort: (k: SortKey) => setSort((s) => nextSort(s, k)) });
 
   return (
     <div className="space-y-4">
@@ -95,7 +126,7 @@ export function CustomerTab({ filters }: { filters: Filters }) {
             <h3 className="font-display text-sm font-semibold">Customer Ranking</h3>
             <p className="text-xs text-muted-foreground">Profitability, payment behaviour and risk score</p>
           </div>
-          <Button size="sm" variant="outline" className="gap-1.5" disabled={ranked.length === 0} onClick={() => toCsv(ranked, "customer-ranking.csv")}>
+          <Button size="sm" variant="outline" className="gap-1.5" disabled={ranked.length === 0} onClick={() => toCsv(sortedRanked, "customer-ranking.csv")}>
             <Download className="h-3.5 w-3.5" /> Export CSV
           </Button>
         </div>
@@ -103,14 +134,19 @@ export function CustomerTab({ filters }: { filters: Filters }) {
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-muted/60 text-xs uppercase tracking-wider text-muted-foreground backdrop-blur">
               <tr>
-                <Th>Customer</Th>
-                <Th right>Revenue</Th><Th right>Margin</Th><Th right>Margin %</Th>
-                <Th right>Open</Th><Th right>Overdue</Th><Th right>Avg Days Overdue</Th>
-                <Th right>Finqle Usage</Th><Th right>Risk Score</Th>
+                <SortTh {...sortProps("customer")}>Customer</SortTh>
+                <SortTh right {...sortProps("revenue")}>Revenue</SortTh>
+                <SortTh right {...sortProps("margin")}>Margin</SortTh>
+                <SortTh right {...sortProps("marginPct")}>Margin %</SortTh>
+                <SortTh right {...sortProps("openAmount")}>Open</SortTh>
+                <SortTh right {...sortProps("overdueAmount")}>Overdue</SortTh>
+                <SortTh right {...sortProps("avgDaysOverdue")}>Avg Days Overdue</SortTh>
+                <SortTh right {...sortProps("finqleShare")}>Finqle Usage</SortTh>
+                <SortTh right {...sortProps("riskScore")}>Risk Score</SortTh>
               </tr>
             </thead>
             <tbody>
-              {ranked.map((c) => (
+              {sortedRanked.map((c) => (
                 <tr key={c.customer} className="border-t border-border/60 hover:bg-muted/40">
                   <Td className="font-medium">{c.customer}</Td>
                   <Td right>{fmtCurrency(c.revenue)}</Td>
@@ -218,6 +254,27 @@ function RiskBar({ score }: { score: number }) {
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return <th className={`px-4 py-2.5 text-left font-medium ${right ? "text-right" : ""}`}>{children}</th>;
+}
+function SortTh({ children, right, sortKey, sort, onSort }: {
+  children: React.ReactNode; right?: boolean; sortKey: SortKey; sort: SortState; onSort: (k: SortKey) => void;
+}) {
+  const active = sort?.key === sortKey;
+  const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <th
+      className={`px-4 py-2.5 font-medium ${right ? "text-right" : "text-left"}`}
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex cursor-pointer items-center gap-1 whitespace-nowrap uppercase tracking-wider hover:text-foreground ${active ? "text-foreground" : ""}`}
+      >
+        {children}
+        <Icon className={`h-3 w-3 ${active ? "" : "opacity-40"}`} />
+      </button>
+    </th>
+  );
 }
 function Td({ children, right, className = "" }: { children: React.ReactNode; right?: boolean; className?: string }) {
   return <td className={`px-4 py-2.5 tabular-nums ${right ? "text-right" : ""} ${className}`}>{children}</td>;

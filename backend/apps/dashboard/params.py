@@ -1,9 +1,13 @@
 """Reading the query string the React app sends.
 
 The parameter names are the contract documented in `filterParams` in
-`frontend/src/lib/api.ts`: `from`/`to` are inclusive ISO dates, `broker`,
-`customer` and `status` use the literal string "all" as the no-filter sentinel,
-and `period` carries the preset the user picked.
+`frontend/src/lib/api.ts`: `from`/`to` are inclusive ISO dates; `broker`,
+`customer` and `dealStatus` may repeat, one per selected value, and any of them
+set to "all" means no filter on that field; `status` uses "all" as its
+no-filter sentinel; and `period` carries the preset the user picked.
+
+An absent `broker` or `customer` means every one; an absent `dealStatus` means
+the default status, not every status -- see `DEFAULT_DEAL_STATUS`.
 
 Nothing here raises on bad input. A dashboard that 400s because a date picker
 produced an empty string is worse than one that falls back to its default
@@ -31,6 +35,19 @@ def _as_date(value: str | None) -> date | None:
         return None
 
 
+def _selected(values: list[str]) -> tuple[str, ...]:
+    """Selected names for a repeatable parameter, deduplicated and sorted so the
+    cache key is stable. Empty means no filter on that field.
+
+    "all" anywhere in the list means no filter, which keeps the old
+    single-value `broker=all` style of request working.
+    """
+    names = {v.strip() for v in values if v and v.strip()}
+    if ALL in names:
+        return ()
+    return tuple(sorted(names))
+
+
 def parse_filters(query, as_of: date) -> Filters:
     """Build a `Filters` from a Django `request.GET`.
 
@@ -54,11 +71,12 @@ def parse_filters(query, as_of: date) -> Filters:
     return Filters(
         date_from=date_from,
         date_to=date_to,
-        broker=(query.get("broker") or ALL).strip() or ALL,
-        customer=(query.get("customer") or ALL).strip() or ALL,
+        brokers=_selected(query.getlist("broker")),
+        customers=_selected(query.getlist("customer")),
         status=(query.get("status") or ALL).strip() or ALL,
         # Absent means the default, not ALL -- see `DEFAULT_DEAL_STATUS`.
-        deal_status=(query.get("dealStatus") or DEFAULT_DEAL_STATUS).strip()
-        or DEFAULT_DEAL_STATUS,
+        deal_statuses=_selected(
+            [v for v in query.getlist("dealStatus") if v.strip()] or [DEFAULT_DEAL_STATUS]
+        ),
         period=period,
     )

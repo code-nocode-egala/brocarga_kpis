@@ -4,6 +4,7 @@ import type { Filters } from "@/components/dashboard/FilterBar";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { EmptyRows } from "@/components/dashboard/EmptyState";
+import { NameTick, firstName, shorten } from "@/components/dashboard/NameTick";
 import { usePerformance } from "@/lib/api";
 import { fmtCompact, fmtCurrency, fmtNumber, fmtPct } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,7 @@ export function PerformanceTab({ filters }: { filters: Filters }) {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={byBroker} margin={{ top: 8, right: 8, left: -8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-              <XAxis dataKey="key" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="key" interval={0} tick={<NameTick format={firstName} dy="0.71em" />} axisLine={false} tickLine={false} />
               <YAxis tickFormatter={(v) => fmtCompact(v as number)} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
               <Tooltip content={<TT />} />
               <Bar dataKey="margin" name="Margin" fill={CHART.margin} radius={[6, 6, 0, 0]} />
@@ -88,7 +89,7 @@ export function PerformanceTab({ filters }: { filters: Filters }) {
             <BarChart data={byCustomer} layout="vertical" margin={{ left: 8, right: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
               <XAxis type="number" tickFormatter={(v) => fmtCompact(v as number)} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="key" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} width={130} />
+              <YAxis type="category" dataKey="key" interval={0} tick={<NameTick format={shorten} dy="0.355em" />} axisLine={false} tickLine={false} width={130} />
               <Tooltip content={<TT />} />
               <Bar dataKey="revenue" name="Revenue" fill={CHART.revenue} radius={[0, 6, 6, 0]} />
             </BarChart>
@@ -100,7 +101,7 @@ export function PerformanceTab({ filters }: { filters: Filters }) {
             <BarChart data={marginRanking} layout="vertical" margin={{ left: 8, right: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
               <XAxis type="number" tickFormatter={(v) => fmtCompact(v as number)} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="customer" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} width={130} />
+              <YAxis type="category" dataKey="customer" interval={0} tick={<NameTick format={shorten} dy="0.355em" />} axisLine={false} tickLine={false} width={130} />
               <Tooltip content={<TT />} />
               <Bar dataKey="margin" name="Margin" fill={CHART.margin} radius={[0, 6, 6, 0]} />
             </BarChart>

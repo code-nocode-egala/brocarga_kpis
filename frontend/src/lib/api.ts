@@ -64,9 +64,13 @@ async function getJson<T>(path: string, search?: URLSearchParams): Promise<T> {
  * Filters as query parameters.
  *
  * These names are the contract `apps.api.params.parse_filters` reads:
- * `from`/`to` are inclusive ISO dates, `broker`/`customer` use the literal
- * string "all" as the no-filter sentinel, and `period` carries the preset the
- * user picked so the backend can log or re-resolve it.
+ * `from`/`to` are inclusive ISO dates; `broker`, `customer` and `dealStatus`
+ * repeat once per selected value; and `period` carries the preset the user
+ * picked so the backend can log or re-resolve it.
+ *
+ * No `broker` or `customer` sent means every one. `dealStatus` is different:
+ * the backend reads its absence as the default status, so an empty selection
+ * is sent explicitly as "all".
  *
  * `status` (the invoice state) is deliberately not sent. The filter bar no
  * longer offers it, and `parse_filters` reads an absent `status` as "all", so
@@ -74,14 +78,11 @@ async function getJson<T>(path: string, search?: URLSearchParams): Promise<T> {
  * would mean the same thing but imply a control that no longer exists.
  */
 export function filterParams(f: Filters): URLSearchParams {
-  return new URLSearchParams({
-    from: f.from,
-    to: f.to,
-    broker: f.broker,
-    customer: f.customer,
-    dealStatus: f.dealStatus,
-    period: f.period,
-  });
+  const params = new URLSearchParams({ from: f.from, to: f.to, period: f.period });
+  for (const b of f.brokers) params.append("broker", b);
+  for (const c of f.customers) params.append("customer", c);
+  for (const s of f.dealStatuses.length ? f.dealStatuses : ["all"]) params.append("dealStatus", s);
+  return params;
 }
 
 /**
@@ -92,7 +93,8 @@ export function filterParams(f: Filters): URLSearchParams {
  * at "all", so it can never be the thing that distinguishes two filter sets.
  */
 function filterKey(f: Filters): string {
-  return [f.from, f.to, f.broker, f.customer, f.dealStatus].join("|");
+  const list = (values: string[]) => [...values].sort().join(",") || "all";
+  return [f.from, f.to, list(f.brokers), list(f.customers), list(f.dealStatuses)].join("|");
 }
 
 /** URL of the full CSV extract — a plain link/navigation, not a fetch. */
