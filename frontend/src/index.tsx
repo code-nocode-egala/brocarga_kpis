@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { App } from "./App";
+import { BrokerKpisApp } from "./BrokerKpisApp";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 import "./styles.css";
@@ -20,6 +21,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// Two pages, one bundle: Django and the dev server both answer every non-API
+// path with the same index.html, so the path alone decides which page renders.
+const path = window.location.pathname.replace(/\/+$/, "");
+const Page = path === "/broker_kpis" ? BrokerKpisApp : App;
+
 const container = document.getElementById("root");
 
 if (!container) {
@@ -29,7 +35,7 @@ if (!container) {
 createRoot(container).render(
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <Page />
     </QueryClientProvider>
   </ErrorBoundary>,
 );

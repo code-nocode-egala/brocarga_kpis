@@ -88,6 +88,33 @@ def apply_filters(ds: Dataset, f: Filters) -> tuple[Row, ...]:
     return tuple(d for d in ds.deals if keep(d))
 
 
+def filter_relations(ds: Dataset, f: Filters) -> tuple[Row, ...]:
+    """Select the customer relations the broker and customer filters describe.
+
+    For per-customer facts that are not tied to a deal (credit limits). A
+    customer matches the broker filter if a selected broker held any role on
+    any of its deals, ever -- whatever the deal's date or status, since the
+    facts shown are current rather than per period.
+    """
+    broker_ids = _broker_ids(ds, f.brokers)
+    customer_ids = _customer_ids(ds, f.customers)
+    worked_with = None if broker_ids is None else {
+        deal.get(S.DEAL_CUSTOMER)
+        for deal in ds.deals
+        if broker_ids.intersection(ds.brokers_of(deal))
+    }
+
+    def keep(rel: Row) -> bool:
+        rid = rel.get(S.RELATION_ID)
+        if worked_with is not None and rid not in worked_with:
+            return False
+        if customer_ids is not None and rid not in customer_ids:
+            return False
+        return True
+
+    return tuple(r for r in ds.relations if keep(r))
+
+
 def _broker_ids(ds: Dataset, brokers: tuple[str, ...]) -> set[str] | None:
     """User ids for the selected broker names, or None for "no broker filter".
 

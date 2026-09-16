@@ -36,6 +36,8 @@ urlpatterns = [
     path("api/dashboard/performance/", views.performance, name="performance"),
     path("api/dashboard/receivables/", views.receivables, name="receivables"),
     path("api/dashboard/customers/", views.customers, name="customers"),
+    # Broker KPIs page only.
+    path("api/dashboard/portfolio/", views.portfolio, name="portfolio"),
 
     # -- full extract (the tabs carry a capped table) --------------------
     path("api/transactions/export/", views.export_transactions, name="transactions-export"),

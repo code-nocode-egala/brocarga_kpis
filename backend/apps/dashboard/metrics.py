@@ -34,8 +34,14 @@ from .schema import (
     DEAL_DATE,
     DEAL_ID,
     DEAL_MARGIN,
+    DEAL_NUMBER,
     DEAL_REVENUE,
+    DEAL_STATUS,
+    DEAL_UNLOAD_DATE,
     DEFAULT_PAYMENT_TERM_DAYS,
+    RELATION_CREDIT_LIMIT,
+    RELATION_ID,
+    RELATION_WORK_IN_PROGRESS,
     INVOICE_DATE,
     INVOICE_DEAL,
     INVOICE_ID,
@@ -96,6 +102,53 @@ def general_kpis(deals: Sequence[Row]) -> dict[str, float]:
         "revenue_per_shipment": safe_div(gross, shipments),
         "margin_per_shipment": safe_div(margin, shipments),
     }
+
+def delivery_to_invoice(deals: Iterable[Row], ds: Dataset) -> dict[str, float]:
+    """Average days from a deal's unload date to its first invoice.
+
+    Only deals with both an unload date and at least one (final) invoice count.
+    The gap is signed: a deal invoiced before delivery pulls the average down
+    rather than being dropped.
+    """
+    gaps: list[int] = []
+    for deal in deals:
+        delivered = parse_date(deal.get(DEAL_UNLOAD_DATE))
+        if delivered is None:
+            continue
+        issued = [
+            d for inv in ds.invoices_of_deal.get(deal.get(DEAL_ID), ())
+            if (d := parse_date(inv.get(INVOICE_DATE))) is not None
+        ]
+        if issued:
+            gaps.append((min(issued) - delivered).days)
+    return {
+        "avg_days_delivery_to_invoice": safe_div(sum(gaps), len(gaps)),
+        "delivery_to_invoice_deals": len(gaps),
+    }
+
+
+def deal_status_counts(deals: Iterable[Row]) -> dict[str, int]:
+    """Number of deals per Bubble deal status."""
+    counts: dict[str, int] = defaultdict(int)
+    for deal in deals:
+        counts[str(deal.get(DEAL_STATUS) or "")] += 1
+    return dict(counts)
+
+
+def finqle_credit_limits(relations: Iterable[Row], ds: Dataset) -> list[dict[str, Any]]:
+    """Customers with a Finqle credit limit, largest limit first."""
+    rows = [
+        {
+            "customer": ds.customer_name.get(rel.get(RELATION_ID), "Unknown"),
+            "credit_limit": num(rel.get(RELATION_CREDIT_LIMIT)),
+            "work_in_progress": num(rel.get(RELATION_WORK_IN_PROGRESS)),
+        }
+        for rel in relations
+        if rel.get(RELATION_CREDIT_LIMIT) not in (None, "")
+    ]
+    rows.sort(key=lambda r: (-r["credit_limit"], r["customer"]))
+    return rows
+
 
 def revenue_and_margin_trend(deals: Iterable[Row]) -> list[dict[str, Any]]:
     """
@@ -447,6 +500,23 @@ def outstanding_invoices(invoices: Sequence[Row], ds: Dataset) -> list[dict[str,
             "financed_by_finqle": ds.is_finqle(ds.deal_by_id.get(deal_id, {})),
         })
     rows.sort(key=lambda r: r["days_overdue"], reverse=True)
+    return rows
+
+
+def negative_margin_deals(deals: Iterable[Row], ds: Dataset) -> list[dict[str, Any]]:
+    """Deals sold below cost, biggest loss first."""
+    rows = [
+        {
+            # Short number as a string, falling back to `_id` -- see `_invoice_number`.
+            "id": str(deal.get(DEAL_NUMBER) or deal.get(DEAL_ID, "")),
+            "customer": ds.customer_name_of(deal),
+            "sales_price": num(deal.get(DEAL_REVENUE)),
+            "margin": margin,
+        }
+        for deal in deals
+        if (margin := num(deal.get(DEAL_MARGIN))) < 0
+    ]
+    rows.sort(key=lambda r: r["margin"])
     return rows
 
 

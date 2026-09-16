@@ -6,6 +6,7 @@ import { ChartCard } from "@/components/dashboard/ChartCard";
 import { EmptyRows } from "@/components/dashboard/EmptyState";
 import { NameTick, firstName, shorten } from "@/components/dashboard/NameTick";
 import { usePerformance } from "@/lib/api";
+import type { PerformancePayload } from "@/lib/api-types";
 import { fmtCompact, fmtCurrency, fmtNumber, fmtPct } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { toCsv } from "@/lib/export";
@@ -38,25 +39,7 @@ export function PerformanceTab({ filters }: { filters: Filters }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <ChartCard title="Revenue & Margin Trend" subtitle="Monthly gross revenue vs. margin revenue" className="xl:col-span-2 h-[340px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={CHART.revenue} stopOpacity={0.9} />
-                  <stop offset="100%" stopColor={CHART.revenue} stopOpacity={0.4} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={(v) => fmtCompact(v as number)} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<TT />} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="revenue" name="Revenue" fill="url(#revGrad)" radius={[6, 6, 0, 0]} />
-              <Line type="monotone" dataKey="margin" name="Margin" stroke={CHART.margin} strokeWidth={2.5} dot={{ r: 3, fill: CHART.margin }} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        <RevenueMarginTrend trend={trend} className="xl:col-span-2 h-[340px]" />
 
         <ChartCard title="Revenue by Broker" className="h-[340px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -171,6 +154,31 @@ export function PerformanceTab({ filters }: { filters: Filters }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Monthly gross revenue bars with the margin line; also used on the Broker KPIs page. */
+export function RevenueMarginTrend({ trend, className }: { trend: PerformancePayload["trend"]; className?: string }) {
+  return (
+    <ChartCard title="Revenue & Margin Trend" subtitle="Monthly gross revenue vs. margin revenue" className={className}>
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={trend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <defs>
+            <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={CHART.revenue} stopOpacity={0.9} />
+              <stop offset="100%" stopColor={CHART.revenue} stopOpacity={0.4} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
+          <YAxis tickFormatter={(v) => fmtCompact(v as number)} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
+          <Tooltip content={<TT />} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Bar dataKey="revenue" name="Revenue" fill="url(#revGrad)" radius={[6, 6, 0, 0]} />
+          <Line type="monotone" dataKey="margin" name="Margin" stroke={CHART.margin} strokeWidth={2.5} dot={{ r: 3, fill: CHART.margin }} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 }
 

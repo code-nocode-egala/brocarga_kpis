@@ -97,6 +97,34 @@ class Dataset:
     def broker_names(self) -> list[str]:
         return sorted(set(self.user_name.values()))
 
+    def team_of(self, name: str) -> list[str] | None:
+        """Broker names a viewer may see: themselves plus everyone whose
+        `Superior` is them. None when no (internal) user has that name.
+
+        Matched on the trimmed, case-insensitive display name, since that is
+        what Bubble passes in the link.
+        """
+        wanted = name.strip().casefold()
+        ids = {uid for uid, n in self.user_name.items() if n.casefold() == wanted}
+        if not ids:
+            return None
+        team = set(ids) | {
+            u[S.USER_ID] for u in self.users
+            if u.get(S.USER_ID) in self.user_name and u.get(S.USER_SUPERIOR) in ids
+        }
+        return sorted({self.user_name[uid] for uid in team})
+
+    def customer_names_for(self, brokers: Iterable[str]) -> list[str]:
+        """Customers with at least one deal on which one of `brokers` held a role."""
+        names = set(brokers)
+        ids = {uid for uid, n in self.user_name.items() if n in names}
+        seen = {
+            deal.get(S.DEAL_CUSTOMER)
+            for deal in self.deals
+            if ids.intersection(self.brokers_of(deal))
+        }
+        return sorted({self.customer_name[c] for c in seen if c in self.customer_name})
+
     @property
     def deal_statuses(self) -> list[str]:
         """Every Bubble deal status present in the snapshot, sorted.

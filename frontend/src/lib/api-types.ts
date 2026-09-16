@@ -8,6 +8,7 @@
  *   GET /api/dashboard/performance/    -> PerformancePayload   (build_performance)
  *   GET /api/dashboard/receivables/    -> ReceivablesPayload   (build_receivables)
  *   GET /api/dashboard/customers/      -> CustomersPayload     (build_customers)
+ *   GET /api/dashboard/portfolio/      -> PortfolioPayload     (build_portfolio)
  *   GET /api/transactions/export/      -> text/csv
  *
  * `/api/dashboard/` is the one this app calls: the three tabs share a filter
@@ -139,6 +140,10 @@ export interface PerformanceKpis {
   shipments: number;
   revenuePerShipment: number;
   marginPerShipment: number;
+  /** Mean days from the deal's Unload_date to its first final invoice; signed. */
+  avgDaysDeliveryToInvoice: number;
+  /** How many deals that average covers (unload date and an invoice both present). */
+  deliveryToInvoiceDeals: number;
 }
 
 /** Month-over-month deltas as fractions (0.12 = +12%). */
@@ -165,6 +170,14 @@ export interface PerformanceTableRow {
   shipments: number;
 }
 
+/** A deal sold below cost. `id` is the short deal number, not Bubble's `_id`. */
+export interface NegativeMarginDeal {
+  id: string;
+  customer: string;
+  salesPrice: number;
+  margin: number;
+}
+
 export interface PerformancePayload {
   kpis: PerformanceKpis;
   mom: MomGrowth;
@@ -178,6 +191,8 @@ export interface PerformancePayload {
   scatter: ProfitabilityPoint[];
   /** Every customer x broker pair, revenue descending. */
   table: PerformanceTableRow[];
+  /** Deals with a margin below zero, biggest loss first. */
+  negativeMarginDeals: NegativeMarginDeal[];
 }
 
 // ---------------------------------------------------------------------------
@@ -319,6 +334,38 @@ export interface CustomersPayload {
  * the backend builds them from a single filtered slice, so nothing here can
  * disagree with anything there.
  */
+// ---------------------------------------------------------------------------
+// Broker KPIs portfolio tab — GET /api/dashboard/portfolio/
+// ---------------------------------------------------------------------------
+
+export interface PortfolioKpis {
+  revenue: number;
+  margin: number;
+  marginPct: number;
+  shipments: number;
+  /** Deals currently in status "Invoiced"; ignores the deal-status filter. */
+  invoicedDeals: number;
+  /** Deals currently in status "Transport service"; ignores the deal-status filter. */
+  transportServiceDeals: number;
+}
+
+/** A customer's Finqle credit facility, from the Bubble Relation. */
+export interface CreditLimitRow {
+  customer: string;
+  creditLimit: number;
+  workInProgress: number;
+}
+
+export interface PortfolioPayload {
+  kpis: PortfolioKpis;
+  /**
+   * Customers with a Finqle credit limit, largest first. Filtered by customer,
+   * and by broker as "held any role on any of the customer's deals, ever";
+   * the period does not apply.
+   */
+  creditLimits: CreditLimitRow[];
+}
+
 export interface DashboardPayload {
   performance: PerformancePayload;
   receivables: ReceivablesPayload;
@@ -352,6 +399,8 @@ export const EMPTY_PERFORMANCE: PerformancePayload = {
     shipments: 0,
     revenuePerShipment: 0,
     marginPerShipment: 0,
+    avgDaysDeliveryToInvoice: 0,
+    deliveryToInvoiceDeals: 0,
   },
   mom: { revenue: 0, margin: 0 },
   trend: [],
@@ -360,6 +409,7 @@ export const EMPTY_PERFORMANCE: PerformancePayload = {
   marginRanking: [],
   scatter: [],
   table: [],
+  negativeMarginDeals: [],
 };
 
 export const EMPTY_RECEIVABLES: ReceivablesPayload = {
@@ -402,6 +452,18 @@ export const EMPTY_CUSTOMERS: CustomersPayload = {
   segmentation: [],
   ranked: [],
   actions: [],
+};
+
+export const EMPTY_PORTFOLIO: PortfolioPayload = {
+  kpis: {
+    revenue: 0,
+    margin: 0,
+    marginPct: 0,
+    shipments: 0,
+    invoicedDeals: 0,
+    transportServiceDeals: 0,
+  },
+  creditLimits: [],
 };
 
 export const EMPTY_DASHBOARD: DashboardPayload = {

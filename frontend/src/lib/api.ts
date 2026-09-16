@@ -25,11 +25,13 @@ import {
   EMPTY_DASHBOARD,
   EMPTY_META,
   EMPTY_PERFORMANCE,
+  EMPTY_PORTFOLIO,
   EMPTY_RECEIVABLES,
   type CustomersPayload,
   type DashboardPayload,
   type MetaResponse,
   type PerformancePayload,
+  type PortfolioPayload,
   type ReceivablesPayload,
 } from "./api-types";
 
@@ -82,6 +84,7 @@ export function filterParams(f: Filters): URLSearchParams {
   for (const b of f.brokers) params.append("broker", b);
   for (const c of f.customers) params.append("customer", c);
   for (const s of f.dealStatuses.length ? f.dealStatuses : ["all"]) params.append("dealStatus", s);
+  if (f.viewer) params.set("viewer", f.viewer);
   return params;
 }
 
@@ -94,7 +97,7 @@ export function filterParams(f: Filters): URLSearchParams {
  */
 function filterKey(f: Filters): string {
   const list = (values: string[]) => [...values].sort().join(",") || "all";
-  return [f.from, f.to, list(f.brokers), list(f.customers), list(f.dealStatuses)].join("|");
+  return [f.viewer ?? "", f.from, f.to, list(f.brokers), list(f.customers), list(f.dealStatuses)].join("|");
 }
 
 /** URL of the full CSV extract — a plain link/navigation, not a fetch. */
@@ -118,10 +121,11 @@ export interface Loaded<T> {
  * Cached longer than the dashboards: the customer and broker lists change on
  * the timescale of onboarding, not of clicking a filter.
  */
-export function useMeta(): Loaded<MetaResponse> {
+export function useMeta(viewer?: string): Loaded<MetaResponse> {
   const query = useQuery<MetaResponse, Error>({
-    queryKey: ["meta"],
-    queryFn: () => getJson<MetaResponse>("/meta/"),
+    queryKey: ["meta", viewer ?? ""],
+    queryFn: () =>
+      getJson<MetaResponse>("/meta/", viewer ? new URLSearchParams({ viewer }) : undefined),
     staleTime: 5 * 60_000,
   });
   return { data: query.data ?? EMPTY_META, query };
@@ -176,6 +180,16 @@ export function usePerformance(filters: Filters): Loaded<PerformancePayload> {
 
 export function useReceivables(filters: Filters): Loaded<ReceivablesPayload> {
   return useDashboardSlice(filters, selectReceivables, EMPTY_RECEIVABLES);
+}
+
+/** Broker KPIs portfolio tab. Its own request: the cockpit's combined payload does not carry it. */
+export function usePortfolio(filters: Filters): Loaded<PortfolioPayload> {
+  const query = useQuery<PortfolioPayload, Error>({
+    queryKey: ["portfolio", filterKey(filters)],
+    queryFn: () => getJson<PortfolioPayload>("/dashboard/portfolio/", filterParams(filters)),
+    placeholderData: (prev) => prev,
+  });
+  return { data: query.data ?? EMPTY_PORTFOLIO, query };
 }
 
 export function useCustomers(filters: Filters): Loaded<CustomersPayload> {
