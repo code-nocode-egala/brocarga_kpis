@@ -140,6 +140,7 @@ def generate(seed: int = SEED, today: date | None = None) -> tuple[
             S.INVOICE_DATE: issued.isoformat().replace("+00:00", "Z"),
             S.INVOICE_AMOUNT: revenue,
             S.INVOICE_FINQLE_STATUS: None if rng.random() < settled_odds else "OPEN",
+            S.INVOICE_FINAL_FIELD: S.INVOICE_FINAL_VALUE,
             S.INVOICE_FINQLE_ID: (
                 f"{rng.randrange(16**8):08x}-finqle" if rng.random() < 0.55 else None
             ),

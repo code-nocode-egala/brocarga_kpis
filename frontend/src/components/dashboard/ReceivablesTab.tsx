@@ -67,7 +67,7 @@ export function ReceivablesTab({ filters }: { filters: Filters }) {
         <KpiCard label="Overdue %" value={fmtPct(kpis.overduePct)} icon={FileWarning} tone={kpis.overduePct > 0.25 ? "danger" : kpis.overduePct > 0.1 ? "warning" : "success"} />
         <KpiCard label="Avg Days Overdue" value={`${Math.round(kpis.avgDaysOverdue)}d`} icon={Clock} tone={kpis.avgDaysOverdue > 30 ? "danger" : "warning"} />
         <KpiCard label="Open Invoices" value={fmtNumber(kpis.openCount)} icon={Files} tone="default" sublabel={`${fmtNumber(kpis.overdueCount)} overdue`} />
-        <KpiCard label="Oldest Outstanding" value={`${kpis.oldest}d`} icon={Hourglass} tone={kpis.oldest > 60 ? "danger" : "warning"} />
+        <KpiCard label="Oldest Outstanding" value={`${kpis.oldest}d`} icon={Hourglass} sublabel="days since invoice date" tone={kpis.oldest > 90 ? "danger" : "warning"} />
         <KpiCard
           label="Finqle Financed (open)"
           value={fmtCompact(kpis.finqleOpen)}

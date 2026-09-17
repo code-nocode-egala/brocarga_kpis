@@ -111,10 +111,18 @@ def _fetch_from_bubble() -> tuple[list[Row], list[Row], list[Row], list[Row]]:
     users = pull(S.USER, [
         {"key": S.USER_LEVEL, "constraint_type": "not equal", "value": S.USER_LEVEL_EXTERNAL},
     ])
-    invoices = pull(S.INVOICE, [
+    # Final invoices, plus every OPEN one whatever its final/wrong flag: an
+    # open invoice is money owed whether or not it was marked final. Bubble
+    # constraints only AND together, hence two pulls merged on `_id`.
+    final = pull(S.INVOICE, [
         {"key": S.INVOICE_FINAL_FIELD, "constraint_type": "equals",
          "value": S.INVOICE_FINAL_VALUE},
     ])
+    open_ = pull(S.INVOICE, [
+        {"key": S.INVOICE_FINQLE_STATUS, "constraint_type": "equals", "value": "OPEN"},
+    ])
+    seen = {inv.get(S.INVOICE_ID) for inv in final}
+    invoices = final + [inv for inv in open_ if inv.get(S.INVOICE_ID) not in seen]
     relations = pull(S.RELATION, [])
     return deals, users, invoices, relations
 

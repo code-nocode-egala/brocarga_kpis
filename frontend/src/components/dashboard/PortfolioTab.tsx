@@ -2,12 +2,13 @@ import { DollarSign, TrendingUp, Percent, Package, FileText, Truck } from "lucid
 import type { Filters } from "@/components/dashboard/FilterBar";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { EmptyRows } from "@/components/dashboard/EmptyState";
+import { RevenueMarginMatrix } from "@/components/dashboard/RevenueMarginMatrix";
 import { usePortfolio } from "@/lib/api";
 import { fmtCompact, fmtCurrency, fmtNumber, fmtPct } from "@/lib/format";
 
 /** Portfolio tab of the Broker KPIs page. */
 export function PortfolioTab({ filters }: { filters: Filters }) {
-  const { kpis, creditLimits } = usePortfolio(filters).data;
+  const { kpis, matrix, creditLimits } = usePortfolio(filters).data;
 
   return (
     <div className="space-y-4">
@@ -19,6 +20,8 @@ export function PortfolioTab({ filters }: { filters: Filters }) {
         <KpiCard label="Deals Invoiced" value={fmtNumber(kpis.invoicedDeals)} icon={FileText} tone="warning" />
         <KpiCard label="Deals in Transport Service" value={fmtNumber(kpis.transportServiceDeals)} icon={Truck} tone="info" />
       </div>
+
+      <RevenueMarginMatrix matrix={matrix} />
 
       <div className="card-elevated overflow-hidden">
         <div className="border-b border-border px-4 py-3">

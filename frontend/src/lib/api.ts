@@ -84,7 +84,6 @@ export function filterParams(f: Filters): URLSearchParams {
   for (const b of f.brokers) params.append("broker", b);
   for (const c of f.customers) params.append("customer", c);
   for (const s of f.dealStatuses.length ? f.dealStatuses : ["all"]) params.append("dealStatus", s);
-  if (f.viewer) params.set("viewer", f.viewer);
   return params;
 }
 
@@ -97,7 +96,7 @@ export function filterParams(f: Filters): URLSearchParams {
  */
 function filterKey(f: Filters): string {
   const list = (values: string[]) => [...values].sort().join(",") || "all";
-  return [f.viewer ?? "", f.from, f.to, list(f.brokers), list(f.customers), list(f.dealStatuses)].join("|");
+  return [f.from, f.to, list(f.brokers), list(f.customers), list(f.dealStatuses)].join("|");
 }
 
 /** URL of the full CSV extract — a plain link/navigation, not a fetch. */
@@ -121,11 +120,10 @@ export interface Loaded<T> {
  * Cached longer than the dashboards: the customer and broker lists change on
  * the timescale of onboarding, not of clicking a filter.
  */
-export function useMeta(viewer?: string): Loaded<MetaResponse> {
+export function useMeta(): Loaded<MetaResponse> {
   const query = useQuery<MetaResponse, Error>({
-    queryKey: ["meta", viewer ?? ""],
-    queryFn: () =>
-      getJson<MetaResponse>("/meta/", viewer ? new URLSearchParams({ viewer }) : undefined),
+    queryKey: ["meta"],
+    queryFn: () => getJson<MetaResponse>("/meta/"),
     staleTime: 5 * 60_000,
   });
   return { data: query.data ?? EMPTY_META, query };

@@ -23,7 +23,7 @@ from apps.domain.filters import range_for_preset
 
 from .filters import ALL, DEFAULT_DEAL_STATUS, Filters
 
-DEFAULT_PERIOD = "year"
+DEFAULT_PERIOD = "all"
 
 
 def _as_date(value: str | None) -> date | None:

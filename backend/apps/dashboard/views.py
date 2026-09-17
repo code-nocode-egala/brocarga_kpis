@@ -17,12 +17,6 @@ are given, so this is the only place those decisions are made.
 Views are plain functions, not DRF. There is no database, no auth and no
 serializer validation to justify the framework; `JsonResponse` and a
 `camelize()` are the whole layer.
-
-Viewer scoping: the Broker KPIs page sends `viewer=<broker name>` on every
-call, and the backend then limits the broker filter to that broker and their
-trainees (`Dataset.team_of`). The name arrives in plain text from a Bubble
-link, so this keeps each broker's page to their own team but is not access
-control -- anyone can put a different name in the URL.
 """
 
 from __future__ import annotations
@@ -90,43 +84,14 @@ class Slice:
         return metrics.outstanding_invoices(self.invoices, self.ds)
 
 
-class ViewerError(Exception):
-    """The request names a viewer the snapshot does not know, or needs one and has none."""
-
-    def __init__(self, detail: str, status: int = 403) -> None:
-        super().__init__(detail)
-        self.detail = detail
-        self.status = status
-
-
-def _viewer_team(request: HttpRequest, ds: Dataset, required: bool = False) -> list[str] | None:
-    """Broker names the `viewer` parameter may see, or None when there is no viewer."""
-    viewer = (request.GET.get("viewer") or "").strip()
-    if not viewer:
-        if required:
-            raise ViewerError("This dashboard must be opened with a broker.", status=400)
-        return None
-    team = ds.team_of(viewer)
-    if team is None:
-        raise ViewerError(f"Unknown broker: {viewer}")
-    return team
-
-
-def _load(request: HttpRequest, viewer_required: bool = False) -> tuple[Filters, Slice]:
+def _load(request: HttpRequest) -> tuple[Filters, Slice]:
     """Parsed filters and the slice of the snapshot they select.
 
     The dataset has to be loaded before the filters can be parsed: a period
     preset resolves against `dataset.as_of`, not against the server clock.
-
-    With a viewer, the broker filter is narrowed to the viewer's team: selected
-    brokers outside it are dropped, and "all brokers" means the whole team.
     """
     ds = get_dataset()
     f = parse_filters(request.GET, ds.as_of)
-    team = _viewer_team(request, ds, required=viewer_required)
-    if team is not None:
-        brokers = tuple(b for b in f.brokers if b in team) or tuple(team)
-        f = dataclasses.replace(f, brokers=brokers)
     return f, Slice(ds, apply_filters(ds, f))
 
 
@@ -141,14 +106,12 @@ def _bubble_error(exc: BubbleError) -> JsonResponse:
 
 
 def _guard(view):
-    """Turn a `BubbleError` or `ViewerError` raised inside a view into its HTTP response."""
+    """Turn a `BubbleError` raised inside a view into its HTTP response."""
     def wrapped(request: HttpRequest, *args, **kwargs):
         try:
             return view(request, *args, **kwargs)
         except BubbleError as exc:
             return _bubble_error(exc)
-        except ViewerError as exc:
-            return JsonResponse({"detail": exc.detail}, status=exc.status)
     wrapped.__name__ = view.__name__
     wrapped.__doc__ = view.__doc__
     return wrapped
@@ -191,16 +154,11 @@ def health(request: HttpRequest) -> JsonResponse:
 @require_GET
 @_guard
 def meta(request: HttpRequest) -> JsonResponse:
-    """Filter-bar options and the dataset's reference date.
-
-    With a viewer, the broker and customer lists only offer the viewer's team
-    and the customers that team has worked with.
-    """
+    """Filter-bar options and the dataset's reference date."""
     ds = get_dataset()
-    team = _viewer_team(request, ds)
     return _json({
-        "brokers": ds.broker_names if team is None else team,
-        "customers": ds.customer_names if team is None else ds.customer_names_for(team),
+        "brokers": ds.broker_names,
+        "customers": ds.customer_names,
         "statuses": ["Open", "Overdue", "Paid", "Partially Paid", "Disputed"],
         # Bubble's own deal statuses, and which one an unfiltered request means.
         "deal_statuses": ds.deal_statuses,
@@ -321,6 +279,7 @@ def build_portfolio(f: Filters, s: Slice) -> dict[str, Any]:
             "invoiced_deals": counts.get(S.DEAL_STATUS_INVOICED, 0),
             "transport_service_deals": counts.get(S.DEAL_STATUS_TRANSPORT, 0),
         },
+        "matrix": metrics.revenue_margin_matrix(s.insights, kpis["margin_pct"]),
         "credit_limits": metrics.finqle_credit_limits(filter_relations(s.ds, f), s.ds),
     }
 
@@ -370,11 +329,8 @@ def customers(request: HttpRequest) -> JsonResponse:
 @require_GET
 @_guard
 def portfolio(request: HttpRequest) -> JsonResponse:
-    """The Broker KPIs portfolio tab. Not part of `dashboard`: the cockpit has no use for it.
-
-    Only served for a viewer, since it exists only on the broker page.
-    """
-    return _json(build_portfolio(*_load(request, viewer_required=True)))
+    """The Broker KPIs portfolio tab. Not part of `dashboard`: the cockpit has no use for it."""
+    return _json(build_portfolio(*_load(request)))
 
 
 # --------------------------------------------------------------------------

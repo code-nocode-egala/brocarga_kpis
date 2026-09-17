@@ -18,11 +18,6 @@ export interface Filters {
   customers: string[];
   /** Bubble's `Status` values on the deal; empty means every status. */
   dealStatuses: string[];
-  /**
-   * Broker the Broker KPIs page was opened for. The backend limits every
-   * response to that broker and their trainees. Not a user-editable filter.
-   */
-  viewer?: string;
 }
 
 function shift(iso: string, fn: (d: Date) => void): string {
@@ -64,17 +59,17 @@ export function rangeForPreset(
 }
 
 /**
- * Opening filter state for a given reference date: the trailing year, with
- * every filter open except the deal status.
+ * Opening filter state for a given reference date: all time, with every
+ * filter open except the deal status.
  *
  * That one opens on completed business rather than on "all", matching the
  * backend default -- an unfiltered dashboard counting cancelled deals as
  * revenue would be wrong, not merely broad.
  */
 export function defaultFilters(today: string, dealStatus = DEFAULT_DEAL_STATUS): Filters {
-  const r = rangeForPreset("year", today);
+  const r = rangeForPreset("all", today);
   return {
-    period: "year",
+    period: "all",
     from: r.from,
     to: r.to,
     brokers: [],
@@ -94,12 +89,10 @@ interface FilterBarProps {
   onChange: (f: Filters) => void;
   /** Hides the deal-status filter; its value in `filters` is still applied. */
   showDealStatus?: boolean;
-  /** Brokers Reset selects; defaults to none (all brokers). */
-  resetBrokers?: string[];
 }
 
-export function FilterBar({ filters, onChange, showDealStatus = true, resetBrokers = [] }: FilterBarProps) {
-  const { data: meta } = useMeta(filters.viewer);
+export function FilterBar({ filters, onChange, showDealStatus = true }: FilterBarProps) {
+  const { data: meta } = useMeta();
   // Empty until the API answers — an empty dataset has no reference date, so
   // the pickers fall back to the client clock rather than clamping to "".
   const today = meta.asOf || browserToday();
@@ -119,12 +112,7 @@ export function FilterBar({ filters, onChange, showDealStatus = true, resetBroke
 
   // Re-anchors to the dataset's own date and to whichever deal status the
   // backend treats as the default, rather than to this file's constant.
-  const onReset = () =>
-    onChange({
-      ...defaultFilters(today, meta.defaultDealStatus || undefined),
-      brokers: resetBrokers,
-      viewer: filters.viewer,
-    });
+  const onReset = () => onChange(defaultFilters(today, meta.defaultDealStatus || undefined));
 
   const onDateChange = (key: "from" | "to", value: string) => {
     onChange({ ...filters, period: "custom", [key]: value });

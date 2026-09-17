@@ -70,7 +70,9 @@ INVOICE_AMOUNT = "Amount_excl"
 INVOICE_FINQLE_STATUS = "FInqle_invoice_status"  # sic - the capital I is Bubble's
 INVOICE_FINQLE_ID = "Factoring_invoice_id"
 
-INVOICE_OPEN_STATUSES = frozenset({"OPEN", "SUBMITTED"})
+#: Finqle statuses that count as an open (unpaid) invoice. SUBMITTED -- sent to
+#: Finqle but not yet accepted -- is deliberately not open.
+INVOICE_OPEN_STATUSES = frozenset({"OPEN"})
 
 INVOICE_FINAL_FIELD = "Status_final_wrong"
 INVOICE_FINAL_VALUE = "Final"

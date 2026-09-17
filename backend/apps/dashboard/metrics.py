@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date
+from statistics import median
 from typing import Any, Iterable, Sequence
 
 from .schema import (
@@ -106,7 +107,7 @@ def general_kpis(deals: Sequence[Row]) -> dict[str, float]:
 def delivery_to_invoice(deals: Iterable[Row], ds: Dataset) -> dict[str, float]:
     """Average days from a deal's unload date to its first invoice.
 
-    Only deals with both an unload date and at least one (final) invoice count.
+    Only deals with both an unload date and at least one final invoice count.
     The gap is signed: a deal invoiced before delivery pulls the average down
     rather than being dropped.
     """
@@ -117,7 +118,7 @@ def delivery_to_invoice(deals: Iterable[Row], ds: Dataset) -> dict[str, float]:
             continue
         issued = [
             d for inv in ds.invoices_of_deal.get(deal.get(DEAL_ID), ())
-            if (d := parse_date(inv.get(INVOICE_DATE))) is not None
+            if ds.is_final(inv) and (d := parse_date(inv.get(INVOICE_DATE))) is not None
         ]
         if issued:
             gaps.append((min(issued) - delivered).days)
@@ -154,10 +155,12 @@ def revenue_and_margin_trend(deals: Iterable[Row]) -> list[dict[str, Any]]:
     """
     Revenue and margin per calendar month, oldest first, last 12 months.
 
+    A deal lands in the month it was delivered (`Unload_date`), not the month
+    it was created. Deals without an unload date are left out of the trend.
     """
     monthly: dict[str, dict[str, float]] = defaultdict(lambda: {"revenue": 0.0, "margin": 0.0})
     for deal in deals:
-        when = parse_date(deal.get(DEAL_DATE))
+        when = parse_date(deal.get(DEAL_UNLOAD_DATE))
         if when is None:
             continue
         bucket = monthly[_month_key(when)]
@@ -269,9 +272,10 @@ def customer_insights(deals: Sequence[Row], ds: Dataset) -> list[dict[str, Any]]
         deal_is_finqle = ds.is_finqle(deal)
 
         for inv in ds.invoices_of_deal.get(deal.get(DEAL_ID), ()):
-            cur["_invoices"] += 1
-            if deal_is_finqle:
-                cur["_finqle"] += 1
+            if ds.is_final(inv):
+                cur["_invoices"] += 1
+                if deal_is_finqle:
+                    cur["_finqle"] += 1
             if ds.is_open(inv):
                 cur["open_amount"] += ds.amount(inv)
             late = ds.days_overdue(inv)
@@ -354,6 +358,32 @@ def profitability_scatter(insights: Sequence[dict[str, Any]]) -> list[dict[str, 
     ]
 
 
+def revenue_margin_matrix(insights: Sequence[dict[str, Any]], margin_pct: float) -> dict[str, Any]:
+    """Revenue vs margin % per trading customer, split into four quadrants.
+
+    The revenue split is the median customer, so half the accounts fall on each
+    side. The margin split is `margin_pct`, the portfolio's headline margin %:
+    above it a customer earns more per euro than the portfolio does.
+    """
+    trading = [c for c in insights if c["revenue"] >= 1]
+    return {
+        "points": [
+            {
+                "customer": c["customer"],
+                "revenue": round(c["revenue"]),
+                "margin": round(c["margin"]),
+                "margin_pct": c["margin_pct"],
+                "shipments": c["shipments"],
+            }
+            for c in trading
+        ],
+        "benchmarks": {
+            "revenue": median(c["revenue"] for c in trading) if trading else 0.0,
+            "margin_pct": margin_pct,
+        },
+    }
+
+
 def performance_detail_table(deals: Sequence[Row], ds: Dataset) -> list[dict[str, Any]]:
     pairs: dict[tuple[str, str], dict[str, Any]] = {}
 
@@ -414,7 +444,7 @@ def receivables_kpis(invoices: Sequence[Row], ds: Dataset) -> dict[str, float]:
         "open_count": len(open_invoices),
         "overdue_count": len(overdue),
         "avg_days_overdue": safe_div(sum(d for _, d in overdue), len(overdue)),
-        "oldest": max((d for _, d in overdue), default=0),
+        "oldest": max((ds.days_outstanding(invoice) for invoice in open_invoices), default=0),
         "finqle_open": finqle_open,
         "non_finqle_open": open_amount - finqle_open,
         "finqle_overdue": finqle_overdue,

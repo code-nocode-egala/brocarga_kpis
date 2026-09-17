@@ -206,7 +206,7 @@ export interface ReceivablesKpis {
   openCount: number;
   overdueCount: number;
   avgDaysOverdue: number;
-  /** Days overdue of the single oldest outstanding invoice. */
+  /** Days outstanding (days since issue = days overdue + payment term) of the oldest open invoice. */
   oldest: number;
   finqleOpen: number;
   nonFinqleOpen: number;
@@ -356,8 +356,25 @@ export interface CreditLimitRow {
   workInProgress: number;
 }
 
+/** One trading customer on the revenue vs margin matrix. */
+export interface MatrixPoint {
+  customer: string;
+  revenue: number;
+  margin: number;
+  marginPct: number;
+  shipments: number;
+}
+
+export interface RevenueMarginMatrix {
+  /** Customers with revenue in the period, in no particular order. */
+  points: MatrixPoint[];
+  /** Quadrant splits: median customer revenue and the slice's weighted margin %. */
+  benchmarks: { revenue: number; marginPct: number };
+}
+
 export interface PortfolioPayload {
   kpis: PortfolioKpis;
+  matrix: RevenueMarginMatrix;
   /**
    * Customers with a Finqle credit limit, largest first. Filtered by customer,
    * and by broker as "held any role on any of the customer's deals, ever";
@@ -463,6 +480,7 @@ export const EMPTY_PORTFOLIO: PortfolioPayload = {
     invoicedDeals: 0,
     transportServiceDeals: 0,
   },
+  matrix: { points: [], benchmarks: { revenue: 0, marginPct: 0 } },
   creditLimits: [],
 };
 
